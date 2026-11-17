@@ -2,6 +2,7 @@ package shadowsocks_2022
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"strings"
 
 	"lukechampine.com/blake3"
@@ -18,10 +19,36 @@ func ParseKey(key string, keyLength int) ([]byte, error) {
 	if err != nil {
 		raw = []byte(key)
 	}
-	if len(raw) != keyLength {
-		return nil, ErrBadKey
+	if len(raw) == keyLength {
+		return raw, nil
 	}
-	return raw, nil
+
+	// Case 1: Handle keys where raw binary bytes were converted to a UTF-8 string before Base64 encoding.
+	// (Common when binary bytes > 127 are treated as Latin-1 chars and converted to 2-byte UTF-8, expanding 32 bytes to 48 bytes)
+	if len(raw) > keyLength {
+		runes := []rune(string(raw))
+		if len(runes) == keyLength {
+			res := make([]byte, keyLength)
+			valid := true
+			for i, r := range runes {
+				if r > 0xFF {
+					valid = false
+					break
+				}
+				res[i] = byte(r)
+			}
+			if valid {
+				return res, nil
+			}
+		}
+	}
+
+	// Case 2: Handle hex-encoded keys (e.g. 32 hex chars for 16-byte key, 64 hex chars for 32-byte key)
+	if hexBytes, err := hex.DecodeString(key); err == nil && len(hexBytes) == keyLength {
+		return hexBytes, nil
+	}
+
+	return nil, ErrBadKey
 }
 
 func ParsePSKList(password string, keyLength int) ([][]byte, error) {

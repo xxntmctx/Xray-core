@@ -60,6 +60,16 @@ func TestKDF(t *testing.T) {
 		t.Fatalf("expected ErrBadKey for long key, got %v", err)
 	}
 
+	// Test UTF-8 double-encoded PSK list (user real-world case)
+	utf8Key := "wp7Cj3weNwUuAsKDesK9wqLDmMKpw7TDo2cQL8KcQyrDp8KHw7TDtmrCgMKxRiV4:w7olcjNMPcK7wqlSdMOMJMORe1DCpcKRw4fDosOdTw7DpBXDsFvCtSILw4HCuMKw"
+	pskList, err := ParsePSKList(utf8Key, 32)
+	if err != nil {
+		t.Fatalf("expected ParsePSKList to succeed for UTF-8 encoded key, got %v", err)
+	}
+	if len(pskList) != 2 || len(pskList[0]) != 32 || len(pskList[1]) != 32 {
+		t.Fatalf("unexpected pskList dimensions: %d keys, len0=%d, len1=%d", len(pskList), len(pskList[0]), len(pskList[1]))
+	}
+
 	// Test Session Subkey determinism
 	salt := []byte("random_salt_1234")
 	k1 := DeriveSessionSubKey(normExact, salt, 16)
